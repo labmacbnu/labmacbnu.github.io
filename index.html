@@ -1,144 +1,278 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <title>Demonstração Fast API</title>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <meta charset="UTF-8">
+  <title>Exemplo básico de mapa</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+  <!--add Leaflet CSS-->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
+    integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
+    crossorigin="" />
+
+  <!--our own style rules-->
+  <style type="text/css">
+    body,
+    html {
+      height: 90%;
+    }
+
+    #map-container {
+      width: 800px;
+      height: 600px;
+    }
+
+    .legend {
+            text-align: left;
+            line-height: 18px;
+            color: #555;
+        }
+
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+  </style>
 </head>
 
 <body>
 
-    <h1>Mapa Saúde SC</h1>
+  <!--The div in which the map will be created-->
+  <div id="app">
+    <h2>Estado</h2>
+    <select v-model="estado_selecionado" @change="carrega_estado">
+      <optgroup v-for="(array_estados, regiao) in estados_por_regiao" :label="regiao">
+        <option v-for="x in array_estados" :value="x.sigla">{{x.nome}}</option> 
+      </div> 
+    </select>
+    <h2>Doença</h2>
+    <select v-model="doenca_selecionada" @change="carrega_doenca"> 
+        <option v-for="x in lista_doencas">{{x}}</option>   
+    </select>
+    <h2>Ano</h2>
+    <input @change="carrega_doenca" id="rangeano" v-model="ano_selecionado" type="range" min="2014" max="2022" step="1">
+    <label for="rangeano">{{ano_selecionado}}</label>
 
-    <div id="app">
-        <label for="doenca">Selecione a doença</label>
-        <select name="doenca" v-model="doenca_select">
-            <option v-for="(valor, key) in lista_doencas" :key="key" :value="key">
-                {{valor}}</option>
-        </select>
-        <br>
-        <label for="lista_municipios">Selecione o municipio</label>
-        <select name="lista_municipios" v-model="cidade_select">
-            <option v-for="registro in lista_cidades" :key="registro.ibge" :value="registro.ibge">
-                {{registro.municipio}} </option>
-        </select>
-        <p>
-            <input v-model="por_mil" type="checkbox" name="pormil"><label for="pormil">Resultado por mil habitantes</label>
-             <button @click="get_serie">Buscar dados</button>
-        </p> 
-    </div>
-    <div id="chart"></div>
+  </div>
+  <div id="map-container"></div>
+  <!--load leaflet.js-->
+  <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
+    integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
+    crossorigin=""></script>
 
+  <!--we need the topojson library as well-->
+  <script src="https://unpkg.com/topojson@3.0.2/dist/topojson.min.js"></script>
+
+  <!--our own code to create the map-->
+  <script>
+    //extend Leaflet to create a GeoJSON layer from a TopoJSON file
+    L.TopoJSON = L.GeoJSON.extend({
+      addData: function (data) {
+        var geojson, key;
+        if (data.type === "Topology") {
+          for (key in data.objects) {
+            if (data.objects.hasOwnProperty(key)) {
+              geojson = topojson.feature(data, data.objects[key]);
+              L.GeoJSON.prototype.addData.call(this, geojson);
+            }
+          }
+          return this;
+        }
+        L.GeoJSON.prototype.addData.call(this, data);
+        return this;
+      }
+    });
+    L.topoJson = function (data, options) {
+      return new L.TopoJSON(data, options);
+    }; 
+    //create an empty geojson layer
+    //with a style and a popup on click
+    
+    //fill: #317581;
+    //define a function to get and parse geojson from URL
+
+
+    //fetch the geojson and add it to our geojson layer 
+  </script>
 </body>
 <script>
-    var app = new Vue({
-        el: '#app',
-        data: {
-            lista_doencas: [],
-            lista_cidades: [],
-            doenca_select: "",
-            regiao_select: "",
-            cidade_select: 0,
-            serie_dados: [],
-            por_mil: false,
-            url: ""
-        },
-        computed: {
-            serie_para_grafico: function () {
-                datas = this.serie_dados.referencia;
-                valores = this.serie_dados.atendimentos;
-                retorno = datas.map(function (x, i) {
-                    return { 'x': x, 'y': valores[i] }
-                })
-                return retorno
-            }
-        }
-        ,
-        methods: {
-            update_doencas: function (novosdados) {
-                this.lista_doencas = novosdados
-            },
-            update_municipios: function (novosdados) {
-                this.lista_cidades = novosdados
-            },
-            update_serie: function (novosdados) {
-                this.serie_dados = novosdados;
+  function groupBy(array, key){
+  const result = {}
+  array.forEach(item => {
+    if (!result[item[key]]){
+      result[item[key]] = []
+    }
+    result[item[key]].push(item)
+  })
+  return result
+}
 
-            },
+const COLOR_MAP = ['#d7191c','#fdae61','#ffffbf','#abd9e9','#2c7bb6']
+const zip = (...arrays) => {
+    const length = Math.min(...arrays.map(arr => arr.length));
+    return Array.from({ length }, (value, index) => arrays.map((array => array[index])));
+};
+  var app = new Vue({
+    el: '#app',
+    data: {
+      mapa: null,
+      geojson_layer: null, 
+      topojson_data: null,
+      atendimento_data: null,
+      topojson_database: null,
+      atendimento_database: null,
+      estado_selecionado: "",
+      doenca_selecionada: "",
+      ano_selecionado: 2018,
+      lista_estados: [],
+      lista_doencas: []
+    },
+    methods: {
+      update_mapa: function(dados){
+        this.mapa = dados;
+      },
+      reload_mapa: function(){
+        if(this.geojson_layer){
+          this.geojson_layer.clearLayers()
+        }
+        this.add_layer()
+        this.mapa.flyToBounds(this.geojson_layer.getBounds())
+      },
+      add_layer: function(){
+        this.geojson_layer = L.topoJson(this.topojson_data, {
+      style: function (feature) {
+        return {
+          color: "#000",
+          opacity: 1,
+          weight: 1,
+          fillColor: COLOR_MAP[feature.properties.ranking],
+          fillOpacity: 0.7
+        }
+      },
+      onEachFeature: function (feature, layer) {
+        try {
+          var indice = feature.properties.indice.toFixed(1)
+        } catch (e){
+          var indice = null
+        } 
+        layer.bindPopup(`<table>
+          <tr>
+            <td><em>${app.doenca_selecionada}</em></td>
+            <td><b>${feature.properties.municipio}</b></td>
+          </tr>
+          <tr>
+            <td>Atendimentos por mil/hab</td><td>${indice}</td>
+          </tr>
+          <tr>
+            <td>População</td><td>${feature.properties.populacao}</td>
+          </tr>
+        </table>
+        `)
+      }
+      }).addTo(this.mapa)
+      },
+      carrega_estado: function () {
+        var uf = this.estado_selecionado
+        
+        this.get_json('/data/geodata/' + uf + '.topojson').then(data =>{ 
+          this.topojson_data = data;
+        });
 
-            get_serie: function () {
-                doenca = this.doenca_select;
-                ibge = this.cidade_select;
-                p1000 = this.por_mil;
-                $app = this;
-                axios.get(`/dados/${doenca}-${ibge}.json`).then(
-                    function (response) {
-                        $app.update_serie(response.data)
-                        doenca = $app.lista_doencas[$app.doenca_select];
-                        chart.updateSeries([{
-                            name: `${doenca}`,
-                            data: $app.serie_para_grafico
-                        }])
-                        chart.updateOptions({title: {text: `Atendimentos de ${doenca}`} })
-                        if(p1000) {
-                            chart.updateOptions({yaxis: {labels: {formatter: (value, index) => value.toFixed(1) }}})
-                        } else {
-                            chart.updateOptions({yaxis: {labels: {formatter: (value, index) => value }}})
-                        }
-                    }
-                )
-            }
-        }
-    })
-    axios.get("/dados/lista-doencas.json").then(
-        function (response) {
-            app.update_doencas(response.data)
-        }
-    )
+        this.get_json('/data/SISAB/SISAB-' + uf + '.json').then( data =>{
+          this.atendimento_data = data; 
+        this.reload_mapa()
+        });
+        
+      },
+      carrega_doenca: function (){
 
-    axios.get("/dados/lista-municipios.json").then(
-        function (response) {
-            app.update_municipios(response.data)
+        const inteira = (a,b) => (a - (a%b))/b 
+
+        var dados = []
+        for (var [codibge, value] of Object.entries(this.atendimento_data)) {
+          var lista_valores = value[this.doenca_selecionada]
+          var lista_referencias = value.referencia
+          var anos = lista_referencias.map( x => inteira(x,100))
+          var lista_populacao = value.populacao
+          // igual python zip 
+          var agregados = zip(lista_referencias, anos, lista_valores, lista_populacao )
+          // filtra pelo ano selecionado 
+          var filtrado = agregados.filter( x => x[1] == this.ano_selecionado )
+          // soma o total de atendimentos
+          var soma = filtrado.reduce( (acc, curr) => acc + curr[2], 0 )
+          var populacao = filtrado[0][3]
+          var resultado = (1000*soma/populacao)
+          dados.push([codibge, resultado, 0, populacao])
+        }  
+        dados.sort( (a,b) => b[1] - a[1] )
+        var N = dados.length;
+        for(var i = 0; i < N; i++ ){
+          dados[i][2] = Math.floor(5 * i / N)
         }
-    )
-    var options = {
-        series: [],
-        chart: {
-            height: 350,
-            type: 'line',
-            zoom: {
-                enabled: true
-            }
-        },
-        dataLabels: {
-            enabled: false
-        },
-        stroke: {
-            curve: 'straight'
-        },
-        title: {
-            text: `Atendimentos de `,
-            align: 'left'
-        },
-        grid: {
-            row: {
-                colors: ['#f3f3f3', 'transparent'], // takes an array which will be repeated on columns
-                opacity: 0.5
-            },
-        },
-        xaxis: {
-            type: 'datetime',
-        },
-        noData: {
-            text: 'Loading...'
+        dictdados = {}
+        dados.forEach(x => dictdados[x[0]] = {"indice": x[1], "ranking": x[2], "populacao": x[3]})
+        console.log(dados)
+        this.topojson_data.objects.foo.geometries.forEach( x=> {var cod = x.properties.codarea;
+           x.properties.indice = dictdados[cod].indice
+           x.properties.ranking = dictdados[cod].ranking
+           x.properties.populacao = dictdados[cod].populacao
+        })
+
+        this.reload_mapa()
+  
+      },
+      get_json: async function (url) {
+        let response = await fetch(url);
+        let data = await response.json(); 
+        return data;
+      }
+    },
+    computed: {
+      estados_por_regiao: function(){
+        return groupBy(this.lista_estados, "regiao")
+      }
+    }
+  })
+
+  document.addEventListener('DOMContentLoaded', function () {
+    let GLOBAL_MAP = L.map('map-container');
+    GLOBAL_MAP.setView([-27.091069, -50.1712629], 6);
+    let bglayer_Positron = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    });
+    //https://colorbrewer2.org/?type=diverging&scheme=RdYlBu&n=5
+    const QUANTIS = 5;
+
+    bglayer_Positron.addTo(GLOBAL_MAP);
+
+  
+
+    var legend = L.control({ position: 'bottomright' });
+
+    legend.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'info legend');
+        var labels = [];
+        for (var i = 0; i < QUANTIS; i++) {
+            labels.push(
+                `<i style="background: ${COLOR_MAP[i]};"></i> ${ QUANTIS - i}º quintil`);
         }
+
+        div.innerHTML = labels.join('<br>');
+        return div;
     };
 
-    var chart = new ApexCharts(document.querySelector("#chart"), options);
-    chart.render();
-
+      legend.addTo(GLOBAL_MAP);
+      app.update_mapa(GLOBAL_MAP);
+      app.add_layer()
+      app.get_json("/data/meta/estados.json").then(data => app.lista_estados = data)
+      app.get_json("/data/meta/lista_doencas.json").then(data => app.lista_doencas = data.doenças)
+  }, false);
 </script>
 
 </html>
